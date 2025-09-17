@@ -186,6 +186,103 @@ class EnhancedStockDataProcessor:
         
         return df
     
+    def create_sequences(self, data: np.ndarray, target: np.ndarray = None) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Create sequences of data for time series prediction.
+        
+        Args:
+            data: Input data with shape (samples, features)
+            target: Target values with shape (samples,)
+            
+        Returns:
+            Tuple of (X, y) where:
+                X: Array of sequences with shape (num_sequences, sequence_length, num_features)
+                y: Array of target values with shape (num_sequences,)
+        """
+        X, y = [], []
+        
+        # If target is not provided, use the last column of data as target
+        if target is None:
+            data, target = data[:, :-1], data[:, -1]
+            
+        # Ensure data is 2D
+        if len(data.shape) == 1:
+            data = data.reshape(-1, 1)
+            
+        # Create sequences
+        for i in range(len(data) - self.sequence_length - self.prediction_horizon + 1):
+            # Get sequence of data
+            X.append(data[i:(i + self.sequence_length)])
+            # Get target (after the sequence)
+            y.append(target[i + self.sequence_length + self.prediction_horizon - 1])
+            
+        return np.array(X), np.array(y)
+        
+    def train_val_test_split(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Split data into training, validation, and test sets.
+        
+        Args:
+            X: Input features with shape (samples, sequence_length, features)
+            y: Target values with shape (samples,)
+            
+        Returns:
+            Tuple of (X_train, X_val, X_test, y_train, y_val, y_test)
+        """
+        # Calculate split indices
+        test_size = int(len(X) * self.test_size)
+        val_size = int(len(X) * self.val_size)
+        
+        # Split into train and test
+        X_train_val, X_test = X[test_size:], X[:test_size]
+        y_train_val, y_test = y[test_size:], y[:test_size]
+        
+        # Split train into train and validation
+        X_train, X_val = X_train_val[val_size:], X_train_val[:val_size]
+        y_train, y_val = y_train_val[val_size:], y_train_val[:val_size]
+        
+        return X_train, X_val, X_test, y_train, y_val, y_test
+        
+    def _create_sequences(
+        self, 
+        data: np.ndarray, 
+        target: np.ndarray = None,
+        sequence_length: int = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Create sequences of data for time series prediction.
+        
+        Args:
+            data: Input features (n_samples, n_features)
+            target: Target values (n_samples,)
+            sequence_length: Length of each sequence
+            
+        Returns:
+            Tuple of (X, y) where X has shape (n_sequences, sequence_length, n_features)
+            and y has shape (n_sequences,)
+        """
+        if sequence_length is None:
+            sequence_length = self.sequence_length
+            
+        X, y = [], []
+        
+        # If target is not provided, use the last column of data as target
+        if target is None:
+            data, target = data[:, :-1], data[:, -1]
+            
+        # Ensure data is 2D
+        if len(data.shape) == 1:
+            data = data.reshape(-1, 1)
+            
+        # Create sequences
+        for i in range(len(data) - sequence_length - self.prediction_horizon + 1):
+            # Get sequence of data
+            X.append(data[i:(i + sequence_length)])
+            # Get target (after the sequence)
+            y.append(target[i + sequence_length + self.prediction_horizon - 1])
+            
+        return np.array(X), np.array(y)
+        
     def _handle_missing_values(self, df: pd.DataFrame) -> pd.DataFrame:
         """Handle missing values in the DataFrame."""
         if self.drop_na:
